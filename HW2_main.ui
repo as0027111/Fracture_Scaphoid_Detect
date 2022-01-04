@@ -50,7 +50,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Classify &amp; Detect Fracture</string>
+     <string>Classify and Detect Fracture</string>
     </property>
    </widget>
    <widget class="QScrollBar" name="img_ScrollBar">
@@ -130,7 +130,7 @@
      <enum>QFrame::Box</enum>
     </property>
     <property name="text">
-     <string>Clip Image</string>
+     <string>Cliped Image</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignCenter</set>

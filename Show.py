@@ -26,12 +26,13 @@ def stage1_predict_plot_img(pred_list, data, idx):
     out = data.__getitem__(idx)
     image = image_convert(out[0])
     image = np.ascontiguousarray(image)
-    bb = out[1]['boxes'].numpy()
-    for i in bb:
-        cv2.rectangle(image, (int(i[0]),int(i[1])), (int(i[2]),int(i[3])), (0,255,0), thickness=2)
-    bb = pred_list[idx]['boxes'].detach().numpy()
-    for i in bb[:1]:
-        cv2.rectangle(image, (int(i[0]),int(i[1])), (int(i[2]),int(i[3])), (0,0,255), thickness=2)
+    real_bb = out[1]['boxes'].numpy()
+    for i in real_bb:
+        cv2.rectangle(image, (int(i[0]),int(i[1])), (int(i[2]),int(i[3])), (0,255,0), thickness=4)
+    pred_bb = pred_list[idx]['boxes'].detach().numpy()
+    for i in pred_bb[:1]:
+        cv2.rectangle(image, (int(i[0]),int(i[1])), (int(i[2]),int(i[3])), (0,0,255), thickness=4)
+
     scaling = PICTURE_BOX_HEIGHT / image.shape[0]
     image = cv2.resize(image, None, fx=scaling, fy=scaling, interpolation=cv2.INTER_AREA)
 
@@ -60,7 +61,7 @@ def fracture_predict_plot_img(data, idx, pred_list):
     image = np.ascontiguousarray(image)
     bb = out[1]['boxes'].numpy()
     theta = out[1]['angle'].numpy()
-    print("Angle: ", theta)
+    # print("Angle: ", theta)
     for i in bb:
         cv2.rectangle(image, (int(i[0]),int(i[1])), (int(i[2]),int(i[3])), (0,255,0), thickness=1)
 
@@ -100,3 +101,43 @@ def draw_rectangle(image, x1y1, x2y2, theta, color):
     img = cv2.line(img, (int(p4_new[0, 0]), int(p4_new[0, 1])), (int(p1_new[0, 0]), int(p1_new[0, 1])), color, 1)
 
     return img
+
+def score_computing(actual, predict):
+    TP, TN, FP, FN = 0, 0, 0, 0
+    for i in range(len(actual)):
+        if actual[i] == 1 and predict[i] == 1:
+            TP += 1
+        elif actual[i] == 0 and predict[i] == 0:
+            TN += 1
+        elif actual[i] == 0 and predict[i] == 1:
+            FP += 1
+        elif actual[i] == 1 and predict[i] == 0:
+            FN += 1
+    recall = TP / (TP + FN)
+    precision = TP / (TP + FP)
+    f1_score = 2 * precision * recall / (precision + recall)
+    return recall, precision, f1_score
+
+def compute_iou(rec1, rec2):
+    """
+    computing IoU
+    :param rec1: (y0, x0, y1, x1), which reflects (top, left, bottom, right)
+    :param rec2: (y0, x0, y1, x1)
+    :return: scala value of IoU
+    """
+    # computing area of each rectangles
+    S_rec1 = (rec1[2] - rec1[0]) * (rec1[3] - rec1[1])
+    S_rec2 = (rec2[2] - rec2[0]) * (rec2[3] - rec2[1])
+    # computing the sum_area
+    sum_area = S_rec1 + S_rec2
+    # find the each edge of intersect rectangle
+    left_line = max(rec1[1], rec2[1])
+    right_line = min(rec1[3], rec2[3])
+    top_line = max(rec1[0], rec2[0])
+    bottom_line = min(rec1[2], rec2[2])
+    # judge if there is an intersect
+    if left_line >= right_line or top_line >= bottom_line:
+        return 0
+    else:
+        intersect = (right_line - left_line) * (bottom_line - top_line)
+        return intersect / (sum_area - intersect)

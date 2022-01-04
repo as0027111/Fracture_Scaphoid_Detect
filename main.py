@@ -36,12 +36,13 @@ class Ui(QtWidgets.QMainWindow):
             self.img_ScrollBar.setRange(0, len(self.val_data)-1) # set the range of scrollbar
 
     def detect_scaphid(self):
-        self.pred_list = Model.predict_stage1(self.valid_data_loader, "fasterrcnn_resnet50_fpn_cloud_1216.pth")
+        self.pred_list, self.iou_list = Model.predict_stage1(self.valid_data_loader, "fasterrcnn_resnet50_fpn_cloud_1216.pth")
         img = Show.stage1_predict_plot_img(self.pred_list, self.val_data, 0)
         self.display_img(img, self.label_detected_img)
         # print("1")
 
     def classifier_and_bbox(self): # stage 2
+        ########### CLASSIFICATION ###########
         classifier_df = Load.classifier_df_create(self.slice_path, self.folder_path)
         self.frac_index_lsit = classifier_df[classifier_df['frac']==1].index
         print("Stage classifier's dataframe:\n", classifier_df.head())
@@ -49,27 +50,31 @@ class Ui(QtWidgets.QMainWindow):
         img = Show.classifier_plot_img(self.classifier_val_data, 0)
         self.display_img(img, self.label_classifier_img)
         self.classifier_pred_list, self.classifier_GT, classifier_acc = Model.predict_classifier(self.classifier_valid_data_loader, 'classifier_stage2_1231.pth')
+        # print(self.classifier_GT)
+        # print(self.classifier_pred_list)
+        self.recall, self.precision, self.f1_score = Show.score_computing(self.classifier_GT, self.classifier_pred_list)
+        print("Classification Score (Mean): ", self.recall, self.precision, self.f1_score)
         
+        show_acc_text = ""
+        if self.classifier_GT[0] == 1:
+            show_acc_text += "Type: Fracture\n"
+        elif self.classifier_GT[0] == 0:
+            show_acc_text += "Type: Normal\n"
+        if self.classifier_pred_list[0] == 1:
+            show_acc_text += "Predicted as: Fracture\n"
+        elif self.classifier_pred_list[0] == 0:
+            show_acc_text += "Predicted as: Normal\n"
+        self.label_Show_acc.setText(show_acc_text)
+
+        ########### FRACTURE BBOX DETECTION ###########
         fracture_df = Load.fracture_df_create(self.slice_path, self.folder_path)
         print("Stage fracture detection's dataframe:\n", fracture_df.head())
         self.frac_val_data, self.frac_valid_data_loader = Load.stage_fracture_detect_data_loader(fracture_df, self.folder_path)
         self.frac_pred_list = Model.predict_frac_detect(self.frac_valid_data_loader, "stage2bbox_resnet50_fpn.pth")
-        # print(self.frac_pred_list)
         frac_image = Show.fracture_predict_plot_img(self.frac_val_data, 0, self.frac_pred_list)
         self.display_img(frac_image, self.label_frac_img)
-        # show_acc_text = ""
-        # if self.classifier_GT[0] == 1:
-        #     show_acc_text += "Type: Fracture\n"
-        # elif self.classifier_GT[0] == 0:
-        #     show_acc_text += "Type: Normal\n"
-        # if self.classifier_pred_list[0] == 1:
-        #     show_acc_text += "Predicted as: Fracture\n"
-        # elif self.classifier_pred_list[0] == 0:
-        #     show_acc_text += "Predicted as: Normal\n"
-        # self.label_Show_acc.setText(show_acc_text)
-        # print(self.classifier_GT)
-        # print(self.classifier_pred_list)
-        # print(acc)
+
+        # print(self.frac_pred_list)
     
 
     def display_img(self, img, label):
@@ -81,16 +86,19 @@ class Ui(QtWidgets.QMainWindow):
     def Scrollbar_action(self):
         # getting current value
         value = self.img_ScrollBar.value()
-        if hasattr(self, 'val_data'):  
-            ori_img = Show.stage1_plot_img(self.val_data, value) # initialize display windows
+        show_acc_text = ""
+        if hasattr(self, 'val_data'): # 原始圖片
+            ori_img = Show.stage1_plot_img(self.val_data, value)
             self.display_img(ori_img, self.label_original_img)
-        if hasattr(self, 'pred_list'):  
+        if hasattr(self, 'pred_list'): # 手骨預測圖片(含bbox)
             pre_img = Show.stage1_predict_plot_img(self.pred_list, self.val_data, value)
             self.display_img(pre_img, self.label_detected_img)
-        if hasattr(self, 'classifier_val_data'):  
+            show_acc_text += "Stage1's IOU Score: " + "{:.2f}".format(self.iou_list[value]*100) + " %\n"
+            show_acc_text += "Average IOU Score: " + str(round(sum(self.iou_list)*100/float(len(self.iou_list)), 3)) + " %\n\n\n"
+        if hasattr(self, 'classifier_val_data'): # 手骨裁切畫面
             cls_img = Show.classifier_plot_img(self.classifier_val_data, value)
             self.display_img(cls_img, self.label_classifier_img)
-            show_acc_text = ""
+
             if self.classifier_GT[value] == 1:
                 show_acc_text += "Type: Fracture\n"
             elif self.classifier_GT[value] == 0:
@@ -99,8 +107,11 @@ class Ui(QtWidgets.QMainWindow):
                 show_acc_text += "Predicted as: Fracture\n"
             elif self.classifier_pred_list[value] == 0:
                 show_acc_text += "Predicted as: Normal\n"
-            self.label_Show_acc.setText(show_acc_text)
-        if hasattr(self, 'frac_val_data'):  
+            show_acc_text += "\n\nClassification Score (Average): \n"
+            show_acc_text += "  Recall: " + "{:.1f}".format(self.recall*100) + " %\n"
+            show_acc_text += "  Precision: " + "{:.1f}".format(self.precision*100) + " %\n"
+            show_acc_text += "  F1-score: " + "{:.1f}".format(self.f1_score*100) + " %\n"
+        if hasattr(self, 'frac_val_data'): # 骨折預測圖片(含bbox) 
             if value in self.frac_index_lsit:
                 pos = 0
                 for idx, i in enumerate(self.frac_index_lsit): 
@@ -112,8 +123,7 @@ class Ui(QtWidgets.QMainWindow):
             else:
                 cls_img = Show.classifier_plot_img(self.classifier_val_data, value) 
                 self.display_img(cls_img, self.label_frac_img)
-
-
+        self.label_Show_acc.setText(show_acc_text)
         self.label_ScrollBar.setText(str(value))
 
 

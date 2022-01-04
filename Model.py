@@ -1,7 +1,8 @@
 import torchvision, torch
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
-
+import numpy as np
+import Show
 
 def get_stage1_model(num_classes):
     # load a model pre-trained on COCO
@@ -31,7 +32,8 @@ def load_stage1_model(device, load_name):
 def predict_stage1(valid_data_loader, load_name='fasterrcnn_resnet50_fpn_cloud_1216.pth'):
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     pred_model = load_stage1_model(device, load_name)
-    pred_list =[]
+    real_list = []
+    pred_list = []
     with torch.no_grad():
         for images, targets, image_ids in tqdm(valid_data_loader):
             
@@ -40,10 +42,20 @@ def predict_stage1(valid_data_loader, load_name='fasterrcnn_resnet50_fpn_cloud_1
 
             prediction = pred_model(images, targets)
             
-            for i in prediction:
+            for i, j in zip(prediction, targets):
                 pred_list.append(i)
+                real_list.append(j)
+                
+
+    iou_list = []
+    for i in range(len(pred_list)):
+        real_bb = real_list[i]['boxes'].numpy().astype(np.int)[0]
+        pred_bb = pred_list[i]['boxes'].detach().numpy().astype(np.int)[0]
+        score_iou = Show.compute_iou(real_bb, pred_bb)
+        iou_list.append(score_iou)
     
-    return pred_list
+        
+    return pred_list, iou_list
 
 
 def predict_classifier(valid_data_loader, load_name='classifier_stage2_1231.pth'):
@@ -113,5 +125,5 @@ def predict_frac_detect(valid_data_loader, load_name='stage2bbox_resnet50_fpn.pt
         
         for i in prediction:
             pred_list.append(i)
-            
+
     return pred_list
