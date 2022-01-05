@@ -13,14 +13,14 @@ class Ui(QtWidgets.QMainWindow):
     def __init__(self):
         super(Ui, self).__init__() # Call the inherited classes __init__ method
         uic.loadUi('HW2_main.ui', self) # Load the .ui file
-
         self.fpath_btn.clicked.connect(self.open_folder)
         self.stage1_btn.clicked.connect(self.detect_scaphid)
         self.stage2_btn.clicked.connect(self.classifier_and_bbox)
         self.img_ScrollBar.setRange(0, 8-1)
         self.img_ScrollBar.valueChanged.connect(lambda: self.Scrollbar_action())
-        self.label_ScrollBar.setText("0")
-
+        self.idx = 0
+        self.label_ScrollBar.setText("Index of Images: "+ str(self.idx+1))
+        self.ResultDisplay(self.idx)
         self.show() # Show the GUI
 
     def open_folder(self):
@@ -34,18 +34,21 @@ class Ui(QtWidgets.QMainWindow):
             img = Show.stage1_plot_img(self.val_data, 0) # initialize display windows
             self.display_img(img, self.label_original_img)
             self.img_ScrollBar.setRange(0, len(self.val_data)-1) # set the range of scrollbar
+            
 
-    def detect_scaphid(self):
+    def detect_scaphid(self): # stage 1
+        print("[Ming] Start the Stage 1: Scraphoid Detection\n")
         self.pred_list, self.iou_list = Model.predict_stage1(self.valid_data_loader, "fasterrcnn_resnet50_fpn_cloud_1216.pth")
         img = Show.stage1_predict_plot_img(self.pred_list, self.val_data, 0)
         self.display_img(img, self.label_detected_img)
-        # print("1")
+        self.ResultDisplay(self.idx)
 
     def classifier_and_bbox(self): # stage 2
         ########### CLASSIFICATION ###########
+        print("[Ming] Start the Stage 2: Scraphoid Classification\n")
         classifier_df = Load.classifier_df_create(self.slice_path, self.folder_path)
         self.frac_index_lsit = classifier_df[classifier_df['frac']==1].index
-        print("Stage classifier's dataframe:\n", classifier_df.head())
+        # print("Stage classifier's dataframe:\n", classifier_df.head())
         self.classifier_val_data, self.classifier_valid_data_loader = Load.stage_classifier_data_loader(classifier_df, self.folder_path)
         img = Show.classifier_plot_img(self.classifier_val_data, 0)
         self.display_img(img, self.label_classifier_img)
@@ -55,25 +58,16 @@ class Ui(QtWidgets.QMainWindow):
         self.recall, self.precision, self.f1_score = Show.score_computing(self.classifier_GT, self.classifier_pred_list)
         print("Classification Score (Mean): ", self.recall, self.precision, self.f1_score)
         
-        show_acc_text = ""
-        if self.classifier_GT[0] == 1:
-            show_acc_text += "Type: Fracture\n"
-        elif self.classifier_GT[0] == 0:
-            show_acc_text += "Type: Normal\n"
-        if self.classifier_pred_list[0] == 1:
-            show_acc_text += "Predicted as: Fracture\n"
-        elif self.classifier_pred_list[0] == 0:
-            show_acc_text += "Predicted as: Normal\n"
-        self.label_Show_acc.setText(show_acc_text)
+        ########### FRACTURE BBOX DETECTION ###########  # stage 3
+        print("[Ming] Start the Stage 3: Fracture Detection\n")
 
-        ########### FRACTURE BBOX DETECTION ###########
         fracture_df = Load.fracture_df_create(self.slice_path, self.folder_path)
         print("Stage fracture detection's dataframe:\n", fracture_df.head())
         self.frac_val_data, self.frac_valid_data_loader = Load.stage_fracture_detect_data_loader(fracture_df, self.folder_path)
-        self.frac_pred_list = Model.predict_frac_detect(self.frac_valid_data_loader, "stage2bbox_resnet50_fpn.pth")
+        self.frac_pred_list, self.frac_iou_list = Model.predict_frac_detect(self.frac_valid_data_loader, "stage2bbox_resnet50_fpn.pth")
         frac_image = Show.fracture_predict_plot_img(self.frac_val_data, 0, self.frac_pred_list)
         self.display_img(frac_image, self.label_frac_img)
-
+        self.ResultDisplay(self.idx)
         # print(self.frac_pred_list)
     
 
@@ -83,34 +77,19 @@ class Ui(QtWidgets.QMainWindow):
         qimg = QImage(img, width, height, bytesPerline, QImage.Format_RGB888).rgbSwapped()
         label.setPixmap(QPixmap.fromImage(qimg))
 
-    def Scrollbar_action(self):
+    def Scrollbar_action(self): # for display image
         # getting current value
         value = self.img_ScrollBar.value()
-        show_acc_text = ""
+        self.idx = value
         if hasattr(self, 'val_data'): # 原始圖片
             ori_img = Show.stage1_plot_img(self.val_data, value)
             self.display_img(ori_img, self.label_original_img)
         if hasattr(self, 'pred_list'): # 手骨預測圖片(含bbox)
             pre_img = Show.stage1_predict_plot_img(self.pred_list, self.val_data, value)
             self.display_img(pre_img, self.label_detected_img)
-            show_acc_text += "Stage1's IOU Score: " + "{:.2f}".format(self.iou_list[value]*100) + " %\n"
-            show_acc_text += "Average IOU Score: " + str(round(sum(self.iou_list)*100/float(len(self.iou_list)), 3)) + " %\n\n\n"
         if hasattr(self, 'classifier_val_data'): # 手骨裁切畫面
             cls_img = Show.classifier_plot_img(self.classifier_val_data, value)
             self.display_img(cls_img, self.label_classifier_img)
-
-            if self.classifier_GT[value] == 1:
-                show_acc_text += "Type: Fracture\n"
-            elif self.classifier_GT[value] == 0:
-                show_acc_text += "Type: Normal\n"
-            if self.classifier_pred_list[value] == 1:
-                show_acc_text += "Predicted as: Fracture\n"
-            elif self.classifier_pred_list[value] == 0:
-                show_acc_text += "Predicted as: Normal\n"
-            show_acc_text += "\n\nClassification Score (Average): \n"
-            show_acc_text += "  Recall: " + "{:.1f}".format(self.recall*100) + " %\n"
-            show_acc_text += "  Precision: " + "{:.1f}".format(self.precision*100) + " %\n"
-            show_acc_text += "  F1-score: " + "{:.1f}".format(self.f1_score*100) + " %\n"
         if hasattr(self, 'frac_val_data'): # 骨折預測圖片(含bbox) 
             if value in self.frac_index_lsit:
                 pos = 0
@@ -123,8 +102,63 @@ class Ui(QtWidgets.QMainWindow):
             else:
                 cls_img = Show.classifier_plot_img(self.classifier_val_data, value) 
                 self.display_img(cls_img, self.label_frac_img)
-        self.label_Show_acc.setText(show_acc_text)
-        self.label_ScrollBar.setText(str(value))
+        self.ResultDisplay(value)
+        self.label_ScrollBar.setText("Index of Images: " + str(self.idx+1))
+
+    def ResultDisplay(self, value): # for display result, value->index of display image
+        # [stage 1] Scaphoid detection
+        stage1_iou_text = ""
+        stage1_average_iou_text = ""
+        if hasattr(self, 'pred_list'): # 手骨預測圖片(含bbox)
+            stage1_iou_text +=  "{:.2f}".format(self.iou_list[value]*100)
+            stage1_average_iou_text += str(round(sum(self.iou_list)*100/float(len(self.iou_list)), 3))
+
+        # [stage 2] Cliped Scaphoid classification
+        stage2_type_text = ""
+        stage2_pred_text = ""
+        stage2_recall_text = ""
+        stage2_precision_text = ""
+        stage2_f1score = ""
+        if hasattr(self, 'classifier_val_data'): # 手骨裁切畫面
+            if self.classifier_GT[value] == 1:
+                stage2_type_text += "Fracture"
+            elif self.classifier_GT[value] == 0:
+                stage2_type_text += "Normal"
+            if self.classifier_pred_list[value] == 1:
+                stage2_pred_text += "Fracture"
+            elif self.classifier_pred_list[value] == 0:
+                stage2_pred_text += "Normal"
+            # show_acc_text += "\n\nClassification Score (Average): \n"
+            stage2_recall_text += "{:.1f}".format(self.recall*100)
+            stage2_precision_text += "{:.1f}".format(self.precision*100)
+            stage2_f1score += "{:.1f}".format(self.f1_score*100)
+
+        # [stage 3] Fracrure detection
+        stage3_iou_text = ""
+        stage3_average_iou_text = ""
+        if hasattr(self, 'frac_val_data'): # 骨折預測圖片(含bbox) 
+            if value in self.frac_index_lsit:
+                pos = 0
+                for idx, i in enumerate(self.frac_index_lsit): 
+                    if value == i: 
+                        pos = idx
+                        break
+                stage3_iou_text += "{:.2f}".format(self.frac_iou_list[pos]*100)
+            else:
+                stage3_iou_text += "-"
+            stage3_average_iou_text += str(round(sum(self.frac_iou_list)*100/float(len(self.frac_iou_list)), 3))
+        self.label_Show_acc.setText("Type: " + stage2_type_text + "\n"+
+                                    "Predicted as: " + stage2_pred_text + "\n\n\n"+
+                                    "Current Image:\n" +
+                                    "  Scaphoid's IOU Score: " + stage1_iou_text + " %\n" +
+                                    "  Fracture's IOU Score: " + stage3_iou_text + " %\n\n\n" +
+                                    "Floder (Average):\n"+
+                                    "  Scaphoid's IOU Score: " + stage1_average_iou_text + " %\n" +
+                                    "  Fracture's IOU Score: " + stage3_average_iou_text + " %\n" +
+                                    "  Recall: " + stage2_recall_text + " %\n" +
+                                    "  Precision: " + stage2_precision_text  + " %\n" +
+                                    "  F1-score: " + stage2_f1score + " %\n"
+                                    )
 
 
 

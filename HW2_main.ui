@@ -6,9 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>935</width>
-    <height>678</height>
+    <width>1097</width>
+    <height>696</height>
    </rect>
+  </property>
+  <property name="font">
+   <font>
+    <family>Times New Roman</family>
+   </font>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
@@ -17,11 +22,17 @@
    <widget class="QPushButton" name="fpath_btn">
     <property name="geometry">
      <rect>
-      <x>80</x>
-      <y>60</y>
-      <width>151</width>
-      <height>41</height>
+      <x>90</x>
+      <y>40</y>
+      <width>271</width>
+      <height>61</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <pointsize>14</pointsize>
+     </font>
     </property>
     <property name="text">
      <string>Select Image Floder</string>
@@ -30,11 +41,16 @@
    <widget class="QPushButton" name="stage1_btn">
     <property name="geometry">
      <rect>
-      <x>280</x>
-      <y>60</y>
-      <width>151</width>
-      <height>41</height>
+      <x>410</x>
+      <y>40</y>
+      <width>271</width>
+      <height>61</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>14</pointsize>
+     </font>
     </property>
     <property name="text">
      <string>Detect Scaphoid</string>
@@ -43,11 +59,16 @@
    <widget class="QPushButton" name="stage2_btn">
     <property name="geometry">
      <rect>
-      <x>480</x>
-      <y>60</y>
-      <width>151</width>
-      <height>41</height>
+      <x>730</x>
+      <y>40</y>
+      <width>271</width>
+      <height>61</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>14</pointsize>
+     </font>
     </property>
     <property name="text">
      <string>Classify and Detect Fracture</string>
@@ -75,6 +96,12 @@
       <height>281</height>
      </rect>
     </property>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
     <property name="frameShape">
      <enum>QFrame::Box</enum>
     </property>
@@ -94,6 +121,12 @@
       <height>281</height>
      </rect>
     </property>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
     <property name="frameShape">
      <enum>QFrame::Box</enum>
     </property>
@@ -108,10 +141,15 @@
     <property name="geometry">
      <rect>
       <x>660</x>
-      <y>620</y>
-      <width>71</width>
-      <height>16</height>
+      <y>610</y>
+      <width>171</width>
+      <height>31</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>12</pointsize>
+     </font>
     </property>
     <property name="text">
      <string>TextLabel</string>
@@ -125,6 +163,12 @@
       <width>191</width>
       <height>161</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <pointsize>12</pointsize>
+     </font>
     </property>
     <property name="frameShape">
      <enum>QFrame::Box</enum>
@@ -145,6 +189,12 @@
       <height>161</height>
      </rect>
     </property>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <pointsize>12</pointsize>
+     </font>
+    </property>
     <property name="frameShape">
      <enum>QFrame::Box</enum>
     </property>
@@ -158,14 +208,20 @@
    <widget class="QLabel" name="label_Show_acc">
     <property name="geometry">
      <rect>
-      <x>710</x>
+      <x>720</x>
       <y>130</y>
-      <width>161</width>
-      <height>281</height>
+      <width>321</width>
+      <height>471</height>
      </rect>
     </property>
+    <property name="font">
+     <font>
+      <family>Times New Roman</family>
+      <pointsize>14</pointsize>
+     </font>
+    </property>
     <property name="text">
-     <string>Acc Result Display</string>
+     <string>Result Display</string>
     </property>
    </widget>
   </widget>
@@ -175,7 +231,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>935</width>
+     <width>1097</width>
      <height>21</height>
     </rect>
    </property>

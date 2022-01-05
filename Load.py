@@ -9,6 +9,11 @@ from torch.utils.data import DataLoader, Dataset
 import cv2
 import torch
 
+STAGE1_DATA_LENGTH = -1 # -1 means the all data should be computed
+CLASSIFIER_DATA_LENGTH = -1
+FRAC_DATA_LENGTH = -1
+
+
 def data_load(floder_path):
     fpath = floder_path
     # print(fpath)
@@ -39,7 +44,7 @@ def stage_one_df_create(slice_path, floder_path):
     return df
 
 def stage_one_data_loader(df, floder_path):
-    val_data = HandDataset(df[:8], get_valid_transform(), floder_path)
+    val_data = HandDataset(df[:], get_valid_transform(), floder_path)
     
     def collate_fn(batch): # batching
         return tuple(zip(*batch))
@@ -54,7 +59,7 @@ def stage_one_data_loader(df, floder_path):
     return val_data, valid_data_loader
 
 def stage_classifier_data_loader(df, floder_path):
-    val_data = Clip_classification_HandDataset(df[:8], get_torch_transform(), floder_path)
+    val_data = Clip_classification_HandDataset(df[:], get_torch_transform(), floder_path)
 
     def collate_fn(batch): # batching
         return tuple(zip(*batch))
@@ -69,7 +74,7 @@ def stage_classifier_data_loader(df, floder_path):
     return val_data, valid_data_loader
 
 def stage_fracture_detect_data_loader(df, floder_path):
-    val_data = Clip_HandDataset(df[:8], get_valid_transform(), floder_path)
+    val_data = Clip_HandDataset(df[:], get_valid_transform(), floder_path)
     
     def collate_fn(batch): # batching
         return tuple(zip(*batch))
@@ -195,10 +200,10 @@ class Clip_classification_HandDataset(Dataset):
         # print(self.images[idx])
         image_filename = str(self.images[idx]) + '.bmp'
         # print(image_filename)
-        if os.path.exists('./Scaphoid/Images/Fracture/' + image_filename): # 在 Fracture 的資料夾中
-            image_arr = cv2.imread('./Scaphoid/Images/Fracture/' + image_filename, cv2.IMREAD_COLOR)
-        elif os.path.exists('./Scaphoid/Images/Normal/' + image_filename): # 在 Normal 的資料夾中
-            image_arr = cv2.imread('./Scaphoid/Images/Normal/' + image_filename, cv2.IMREAD_COLOR)
+        if os.path.exists(self.fpath+'/Images/Fracture/' + image_filename): # 在 Fracture 的資料夾中
+            image_arr = cv2.imread(self.fpath+'/Images/Fracture/' + image_filename, cv2.IMREAD_COLOR)
+        elif os.path.exists(self.fpath+'/Images/Normal/' + image_filename): # 在 Normal 的資料夾中
+            image_arr = cv2.imread(self.fpath+'/Images/Normal/' + image_filename, cv2.IMREAD_COLOR)
         else:
             print("Error Loading img")
         # print(image_arr)
@@ -271,7 +276,17 @@ class Clip_HandDataset(Dataset):
         image_arr = image_arr[clip_bbox[:, 1][0]:clip_bbox[:, 3][0], clip_bbox[:, 0][0]:clip_bbox[:, 2][0]]
 
         boxes = point[['cx1', 'cy1', 'cx2', 'cy2']].values
+        if boxes[0,0] < 0:
+            boxes[0,0] = 0
+        if boxes[0,1] < 0:
+            boxes[0,1] = 0
+        if boxes[0,2] > image_arr.shape[0]:
+            boxes[0,2] = image_arr.shape[0]
+        if boxes[0,3] > image_arr.shape[1]:
+            boxes[0,3] = image_arr.shape[1]
+
         boxes_angle = point[['angle']].values
+
         labels = torch.ones((point.shape[0],), dtype=torch.int64)
         
         # suppose all instances are not crowd

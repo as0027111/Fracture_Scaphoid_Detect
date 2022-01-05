@@ -3,6 +3,9 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from tqdm import tqdm
 import numpy as np
 import Show
+import cv2
+# device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+device = torch.device('cpu')
 
 def get_stage1_model(num_classes):
     # load a model pre-trained on COCO
@@ -19,7 +22,7 @@ def load_stage1_model(device, load_name):
     # print(device)
     pred_model = get_stage1_model(num_classes=2)
     if device == torch.device('cpu'):
-        print("CPU GOGO")
+        print("[Ming] CPU GOGO")
         pred_model.load_state_dict(torch.load(load_name, map_location='cpu'))
     else:
         pred_model.load_state_dict(torch.load(load_name))
@@ -30,7 +33,6 @@ def load_stage1_model(device, load_name):
     return pred_model
 
 def predict_stage1(valid_data_loader, load_name='fasterrcnn_resnet50_fpn_cloud_1216.pth'):
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     pred_model = load_stage1_model(device, load_name)
     real_list = []
     pred_list = []
@@ -46,7 +48,6 @@ def predict_stage1(valid_data_loader, load_name='fasterrcnn_resnet50_fpn_cloud_1
                 pred_list.append(i)
                 real_list.append(j)
                 
-
     iou_list = []
     for i in range(len(pred_list)):
         real_bb = real_list[i]['boxes'].numpy().astype(np.int)[0]
@@ -59,14 +60,15 @@ def predict_stage1(valid_data_loader, load_name='fasterrcnn_resnet50_fpn_cloud_1
 
 
 def predict_classifier(valid_data_loader, load_name='classifier_stage2_1231.pth'):
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    
     classifier_model = torch.nn.Sequential(
                 torchvision.models.resnet50(pretrained=True), 
                 torch.nn.ReLU(),
                 torch.nn.Linear(1000, 2)
             ).to(device)
     if device == torch.device('cpu'):
-        print("CPU GOGO")
+        print("[Ming] CPU GOGO")
         classifier_model.load_state_dict(torch.load(load_name, map_location=torch.device('cpu')))
     else:
         classifier_model.load_state_dict(torch.load(load_name))
@@ -101,21 +103,20 @@ def get_frac_detect_model(num_classes):
     return model
 
 def predict_frac_detect(valid_data_loader, load_name='stage2bbox_resnet50_fpn.pth'):
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     pred_model = get_frac_detect_model(num_classes=2)
     if device == torch.device('cpu'):
-        print("CPU GOGO")
+        print("[Ming] CPU GOGO")
         pred_model.load_state_dict(torch.load(load_name, map_location=torch.device('cpu')))
     else:
         pred_model.load_state_dict(torch.load(load_name))
     # model.load_state_dict(torch.load('model_state.pth', map_location='cpu'))
 
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     pred_model.to(device) # For inference
     pred_model.eval()
-    pred_list =[]
-
+    real_list = []
+    pred_list = []
     for images, targets, image_ids in tqdm(valid_data_loader):
         
         images = list(image.to(device) for image in images)
@@ -123,7 +124,30 @@ def predict_frac_detect(valid_data_loader, load_name='stage2bbox_resnet50_fpn.pt
 
         prediction = pred_model(images, targets)
         
-        for i in prediction:
+        for i, j in zip(prediction, targets):
             pred_list.append(i)
+            real_list.append(j)
+    
+    iou_list = []
+    for i in range(len(pred_list)):
+        bbox = real_list[i]['boxes'].numpy().astype(np.int)[0]
+        center_x =  int((bbox[2] + bbox[0]) / 2)
+        center_y =  int((bbox[3] + bbox[1]) / 2)
+        width = int(bbox[2] - bbox[0])
+        height = int(bbox[3] - bbox[1])
+        angle = real_list[i]['angle'].numpy().astype(np.float)[0,0]
+        rect = (center_x, center_y), (width, height), angle
+        groundTruthPoints = np.array(cv2.boxPoints(rect), int)
 
-    return pred_list
+        bbox = pred_list[i]['boxes'].detach().numpy().astype(np.int)[0]
+        center_x =  int((bbox[2] + bbox[0]) / 2)
+        center_y =  int((bbox[3] + bbox[1]) / 2)
+        width = int(bbox[2] - bbox[0])
+        height = int(bbox[3] - bbox[1])
+        angle = 0
+        rect = (center_x, center_y), (width, height), angle
+        predictPoints = np.array(cv2.boxPoints(rect), int)
+        iou = Show.evaluationIOU(predictPoints, groundTruthPoints)
+        iou_list.append(iou)
+
+    return pred_list, iou_list
